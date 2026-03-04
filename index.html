@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Juego del Azar · NyPE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+
+:root {
+  --bg:        #0d0e12;
+  --surface:   #161820;
+  --border:    #252730;
+  --accent:    #e8c547;
+  --accent2:   #5b8dee;
+  --muted:     #555870;
+  --text:      #d8dae8;
+  --text-dim:  #7e8198;
+  --red:       #e85b5b;
+  --green:     #4caf7d;
+  --orange:    #ff9900;
+  --gold:      #e8c547;
+  --silver:    #a0a8c0;
+  --bronze:    #cd7f32;
+  --radius:    12px;
+  --tr:        0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { height:100%; -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg); color:var(--text);
+  min-height:100dvh;
+  display:flex; align-items:flex-start; justify-content:center;
+  overflow-x:hidden; touch-action:manipulation;
+}
+body.game-active { overflow:hidden; }
+html.game-active { overflow:hidden; }
+
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(91,141,238,.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(232,197,71,.04) 0%, transparent 60%);
+}
+
+/* ── SCREENS ── */
+.screen {
+  display:none; width:100%; max-width:900px;
+  padding:36px 18px 56px;
+  animation:fadeUp .35s ease both;
+  position:relative; z-index:1;
+}
+.screen.active { display:block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+
+/* Game screen — fixed fullscreen */
+#screen-game {
+  display:none; flex-direction:column; align-items:center;
+  position:fixed; inset:0; z-index:10;
+  background:var(--bg); overflow:hidden;
+  padding:16px 16px max(16px, env(safe-area-inset-bottom));
+}
+#screen-game.active { display:flex; }
+
+/* ── COMMON ── */
+.lab-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:'DM Mono',monospace; font-size:11px; letter-spacing:.12em;
+  color:var(--accent); text-transform:uppercase;
+  border:1px solid rgba(232,197,71,.25); padding:6px 14px; border-radius:100px; margin-bottom:20px;
+}
+.lab-badge::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--accent); animation:blink 2s ease infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+h1 { font-family:'Playfair Display',serif; font-size:clamp(2rem,8vw,3.4rem); font-weight:900; line-height:1.08; color:#fff; margin-bottom:12px; letter-spacing:-.02em; }
+h1 span { color:var(--accent); }
+.subtitle { color:var(--text-dim); font-size:clamp(.88rem,3vw,1rem); line-height:1.6; max-width:520px; margin-bottom:24px; }
+
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:14px; }
+.card-title { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+
+.step-list { display:flex; flex-direction:column; gap:10px; }
+.step { display:flex; align-items:flex-start; gap:12px; }
+.step-num { flex-shrink:0; width:24px; height:24px; border-radius:50%; background:rgba(232,197,71,.15); border:1px solid rgba(232,197,71,.3); color:var(--accent); font-family:'DM Mono',monospace; font-size:.75rem; font-weight:500; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+.step-text { font-size:.88rem; color:var(--text-dim); line-height:1.5; }
+.step-text strong { color:var(--text); }
+
+.key-row { display:flex; gap:10px; flex-wrap:wrap; }
+.key-pill { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:clamp(.85rem,3vw,.95rem); }
+.key-num { font-family:'DM Mono',monospace; font-size:.85rem; font-weight:500; background:rgba(255,255,255,.08); border-radius:6px; padding:2px 8px; color:var(--accent); }
+
+.field { margin-bottom:4px; }
+label { display:block; font-size:.82rem; color:var(--text-dim); margin-bottom:6px; }
+input[type="text"] {
+  width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border);
+  border-radius:8px; padding:13px 16px; color:var(--text);
+  font-family:'DM Mono',monospace; font-size:16px;
+  outline:none; transition:border-color var(--tr); -webkit-appearance:none;
+}
+input[type="text"]:focus { border-color:var(--accent2); }
+
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:15px 28px; border-radius:9px; font-size:clamp(.9rem,3.5vw,.95rem); font-weight:500;
+  cursor:pointer; border:none; transition:all var(--tr);
+  -webkit-appearance:none; touch-action:manipulation; user-select:none; min-height:52px;
+  font-family:'DM Sans',sans-serif;
+}
+.btn-primary   { background:var(--accent); color:#0d0e12; width:100%; }
+.btn-primary:active { background:#f0d060; transform:scale(.98); }
+.btn-secondary { background:transparent; color:var(--text); border:1px solid var(--border); }
+.btn-secondary:active { opacity:.7; }
+.btn-sm { padding:11px 20px; font-size:.85rem; min-height:44px; }
+.btn-share { background:linear-gradient(135deg,#25d366,#128c7e); color:#fff; width:100%; font-size:1rem; }
+.btn-share:active { opacity:.85; transform:scale(.98); }
+
+/* ── GAME SCREEN LAYOUT ── */
+.game-inner {
+  display:flex; flex-direction:column;
+  width:100%; max-width:500px;
+  height:100%; gap:0;
+}
+
+.game-header {
+  display:flex; justify-content:space-between; align-items:center;
+  flex-shrink:0; padding-bottom:10px;
+}
+.game-title {
+  font-family:'DM Mono',monospace; font-size:11px; letter-spacing:.12em;
+  color:var(--accent); text-transform:uppercase;
+  display:flex; align-items:center; gap:8px;
+}
+.game-title::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--accent); animation:blink 2s ease infinite; }
+
+.btn-reset {
+  font-family:'DM Mono',monospace; font-size:.78rem; color:var(--text-dim);
+  background:transparent; border:1px solid var(--border); border-radius:8px;
+  padding:7px 14px; cursor:pointer; touch-action:manipulation;
+  transition:all var(--tr); letter-spacing:.04em;
+}
+.btn-reset:active { opacity:.6; }
+
+/* Score bar */
+.score-bar {
+  display:flex; align-items:center; justify-content:center; gap:16px;
+  flex-shrink:0; margin-bottom:10px;
+}
+.score-entry {
+  display:flex; align-items:baseline; gap:8px;
+}
+.score-who {
+  font-family:'DM Mono',monospace; font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted);
+}
+.score-num {
+  font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:700; color:var(--text);
+  transition:color .15s;
+}
+.score-num.flash-player { color:var(--green); }
+.score-num.flash-compu  { color:var(--red); }
+.score-sep {
+  font-family:'DM Mono',monospace; font-size:.85rem; color:var(--border);
+}
+
+/* Gauges */
+.gauges-row {
+  display:flex; gap:10px;
+  flex-shrink:0;
+  height:min(38dvh, 200px);
+  margin-bottom:10px;
+}
+.gauge-wrap {
+  flex:1;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  position:relative;
+}
+.gauge-wrap canvas {
+  display:block; width:100%; height:100%;
+}
+.gauge-flash {
+  position:absolute; inset:0; border-radius:var(--radius);
+  opacity:0; pointer-events:none; transition:opacity .12s;
+}
+.gauge-flash.show { opacity:1; }
+.gauge-flash.player { background:rgba(76,175,125,.15); }
+.gauge-flash.compu  { background:rgba(232,91,91,.15); }
+
+/* Bets visualization */
+.bets-section {
+  flex-shrink:0;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:10px 12px;
+  margin-bottom:10px;
+}
+.bets-title {
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:8px;
+}
+.bets-row-wrap { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.bets-row-wrap:last-child { margin-bottom:0; }
+.bets-label {
+  font-family:'DM Mono',monospace; font-size:9px; color:var(--muted);
+  text-transform:uppercase; width:36px; flex-shrink:0; text-align:right;
+  letter-spacing:.06em;
+}
+.bets-cells { display:flex; gap:3px; flex:1; overflow:hidden; }
+.bet-cell {
+  flex:1; min-width:0;
+  aspect-ratio:1; max-width:30px; max-height:30px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:6px; font-size:13px; border:1px solid transparent;
+  transition:all .1s;
+}
+.player-pt  { background:rgba(76,175,125,.15); border-color:rgba(76,175,125,.35); color:var(--green); }
+.computer-pt{ background:rgba(232,91,91,.15);  border-color:rgba(232,91,91,.35);  color:var(--red); }
+.bet-empty  { background:rgba(255,255,255,.03); border-color:var(--border); color:transparent; }
+.bet-upcoming {
+  background:rgba(232,197,71,.08); border:1px dashed rgba(232,197,71,.4);
+  color:var(--accent); animation:pulseBet 1.4s ease-in-out infinite;
+  font-family:'DM Mono',monospace; font-size:12px; font-weight:500;
+}
+@keyframes pulseBet { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* Arrow buttons */
+.buttons-row {
+  display:flex; gap:10px; flex-shrink:0;
+  height:clamp(56px, 11dvh, 72px);
+}
+.btn-arrow {
+  flex:1; background:var(--surface); border:1.5px solid var(--border);
+  border-radius:var(--radius); color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  font-size:clamp(.95rem,4vw,1.1rem); font-weight:500;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  touch-action:manipulation; user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  transition:all .1s;
+}
+.btn-arrow:active, .btn-arrow.pressed {
+  background:rgba(91,141,238,.12);
+  border-color:var(--accent2);
+  transform:scale(.97);
+}
+.arrow-icon { font-size:clamp(1.3rem,5vw,1.6rem); line-height:1; }
+
+.kbd-hint {
+  flex-shrink:0; text-align:center; padding-top:6px;
+  font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:.06em;
+}
+
+/* Feedback flash */
+.feedback-flash {
+  position:fixed; inset:0; pointer-events:none; z-index:200; opacity:0; transition:opacity .08s;
+}
+.feedback-flash.player { background:rgba(76,175,125,.08); }
+.feedback-flash.compu  { background:rgba(232,91,91,.12); }
+.feedback-flash.show   { opacity:1; }
+
+/* ── RESULTS SCREEN ── */
+.flex-between { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; }
+
+.res-winner-text {
+  font-family:'Playfair Display',serif;
+  font-size:clamp(2rem,8vw,3.2rem); font-weight:900;
+  line-height:1.1; margin-bottom:6px;
+}
+.res-winner-text.won  { color:var(--accent); }
+.res-winner-text.lost { color:var(--text); }
+
+.score-hero {
+  background:linear-gradient(135deg,rgba(232,197,71,.12),rgba(232,197,71,.04));
+  border:1px solid rgba(232,197,71,.3); border-radius:var(--radius);
+  padding:24px; margin-bottom:14px; text-align:center;
+}
+.score-label  { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
+.score-value  { font-family:'Playfair Display',serif; font-size:clamp(3rem,10vw,4.5rem); font-weight:900; color:var(--accent); line-height:1; }
+.score-sub    { font-size:.8rem; color:var(--text-dim); margin-top:8px; }
+.score-formula{ font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-top:6px; }
+
+.results-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+@media (max-width:400px) { .results-grid { grid-template-columns:1fr 1fr; } }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+.stat-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.stat-value { font-family:'Playfair Display',serif; font-size:clamp(1.6rem,6vw,2rem); font-weight:700; color:#fff; }
+.stat-unit  { font-size:.8rem; color:var(--text-dim); font-family:'DM Sans',sans-serif; }
+
+/* Leaderboard */
+.lb-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+.lb-title  { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.lb-status { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+.lb-status.ok   { color:var(--green); }
+.lb-status.err  { color:var(--red); }
+.lb-status.spin { color:var(--accent2); display:inline-block; animation:spin .8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+.lb-row { display:grid; grid-template-columns:36px 1fr auto; align-items:center; gap:10px; padding:12px 14px; border-radius:9px; margin-bottom:6px; background:var(--surface); border:1px solid var(--border); }
+.lb-row.is-you { border-color:rgba(232,197,71,.4); background:linear-gradient(90deg,rgba(232,197,71,.07),transparent); }
+.lb-row.rank-1 { border-color:rgba(232,197,71,.4); }
+.lb-row.rank-2 { border-color:rgba(160,168,192,.25); }
+.lb-row.rank-3 { border-color:rgba(205,127,50,.25); }
+.lb-rank { font-family:'Playfair Display',serif; font-size:1.2rem; font-weight:700; text-align:center; }
+.lb-rank.r1 { color:var(--gold); }
+.lb-rank.r2 { color:var(--silver); }
+.lb-rank.r3 { color:var(--bronze); }
+.lb-rank.rn { color:var(--muted); font-size:.9rem; font-family:'DM Mono',monospace; }
+.lb-info   { min-width:0; }
+.lb-name   { font-size:.9rem; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.you-badge { font-family:'DM Mono',monospace; font-size:.62rem; color:var(--accent); background:rgba(232,197,71,.15); border:1px solid rgba(232,197,71,.3); padding:1px 5px; border-radius:4px; margin-left:6px; vertical-align:middle; }
+.lb-meta   { font-size:.7rem; color:var(--text-dim); font-family:'DM Mono',monospace; margin-top:2px; }
+.lb-score  { font-family:'Playfair Display',serif; font-size:1.3rem; font-weight:700; color:var(--text); white-space:nowrap; }
+.lb-score.r1 { color:var(--gold); }
+.lb-empty  { text-align:center; padding:24px; color:var(--muted); font-size:.85rem; font-family:'DM Mono',monospace; }
+
+/* Toast */
+.toast {
+  position:fixed; bottom:32px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--text); font-size:.85rem; padding:12px 20px; border-radius:9px;
+  font-family:'DM Mono',monospace; z-index:300;
+  opacity:0; transition:all .3s; white-space:nowrap; pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+.actions-row { display:flex; flex-direction:column; gap:10px; margin-top:18px; }
+
+.credit { margin-top:28px; text-align:center; color:var(--muted); font-size:.7rem; line-height:1.5; font-style:italic; }
+
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<!-- ══ SCREEN 1 · INICIO ══════════════════════════════════ -->
+<div id="screen-start" class="screen active">
+  <div class="lab-badge">NyPE · Juego del Azar</div>
+  <h1>Jugá al<br><span>azar</span></h1>
+  <p class="subtitle">
+    ¿Podés ser verdaderamente aleatorio? Un algoritmo intenta predecir cada una de tus jugadas.
+  </p>
+
+  <div class="card">
+    <div class="card-title">¿Cómo se juega?</div>
+    <div class="step-list">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Apretá las teclas <strong>← izquierda</strong> o <strong>derecha →</strong> del teclado (o los botones en la pantalla) de forma completamente aleatoria, como si tiraras una moneda.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Cada vez que la computadora <strong>adivina tu jugada</strong>, ella suma un punto. Si <strong>no la adivina</strong>, el punto es tuyo.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">El <strong>primero en llegar a 50 puntos</strong> gana. Intentá ser lo más impredecible posible.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Controles</div>
+    <div class="key-row">
+      <div class="key-pill"><span class="key-num">←</span>Izquierda</div>
+      <div class="key-pill"><span class="key-num">→</span>Derecha</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Participante</div>
+    <div class="field">
+      <label>Tu nombre o ID (aparecerá en el ranking)</label>
+      <input type="text" id="participant-id" placeholder=""
+             maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="startGame()">Empezar →</button>
+  <p style="margin-top:10px; text-align:center; color:var(--text-dim); font-size:.82rem;">Primero en llegar a 50 puntos gana.</p>
+  <p class="credit">Creado por Guillermo Solovey para<br>Neurociencia y Psicología Experimental, UTDT.</p>
+</div>
+
+
+<!-- ══ SCREEN 2 · JUEGO ═══════════════════════════════════ -->
+<div id="screen-game" class="screen">
+  <div class="game-inner">
+
+    <div class="game-header">
+      <div class="game-title">NyPE · Juego del Azar</div>
+      <button class="btn-reset" onclick="confirmReset()">reiniciar</button>
+    </div>
+
+    <div class="score-bar">
+      <div class="score-entry">
+        <span class="score-who">Vos</span>
+        <span class="score-num" id="score-player">0</span>
+      </div>
+      <span class="score-sep">/</span>
+      <div class="score-entry">
+        <span class="score-num" id="score-compu">0</span>
+        <span class="score-who">Compu</span>
+      </div>
+    </div>
+
+    <div class="gauges-row">
+      <div class="gauge-wrap" id="gauge-wrap-player">
+        <canvas id="gauge-player"></canvas>
+        <div class="gauge-flash" id="flash-player"></div>
+      </div>
+      <div class="gauge-wrap" id="gauge-wrap-compu">
+        <canvas id="gauge-compu"></canvas>
+        <div class="gauge-flash" id="flash-compu"></div>
+      </div>
+    </div>
+
+    <div class="bets-section">
+      <div class="bets-title">Últimas jugadas (verde = tu punto · rojo = punto de la compu)</div>
+      <div class="bets-row-wrap">
+        <span class="bets-label">vos</span>
+        <div class="bets-cells" id="bets-player"></div>
+      </div>
+      <div class="bets-row-wrap">
+        <span class="bets-label">compu</span>
+        <div class="bets-cells" id="bets-compu"></div>
+      </div>
+    </div>
+
+    <div class="buttons-row">
+      <button class="btn-arrow" id="btn-left">
+        <span class="arrow-icon">←</span>
+        <span>Izquierda</span>
+      </button>
+      <button class="btn-arrow" id="btn-right">
+        <span>Derecha</span>
+        <span class="arrow-icon">→</span>
+      </button>
+    </div>
+
+    <div class="kbd-hint">O presioná las teclas ← →</div>
+  </div>
+</div>
+
+<!-- Feedback flash overlay -->
+<div class="feedback-flash" id="feedback-flash"></div>
+
+
+<!-- ══ SCREEN 3 · RESULTADOS ═════════════════════════════ -->
+<div id="screen-results" class="screen">
+
+  <div class="flex-between" style="margin-bottom:22px;">
+    <div>
+      <div class="lab-badge">Resultados</div>
+      <div id="res-winner" class="res-winner-text">—</div>
+      <p id="res-participant" style="color:var(--text-dim); font-size:.82rem; margin-top:4px;"></p>
+    </div>
+  </div>
+
+  <div class="score-hero">
+    <div class="score-label">Puntaje</div>
+    <div class="score-value" id="res-game-score">0</div>
+    <div class="score-sub" id="res-score-rank"></div>
+    <div class="score-formula">Ganaste: 1000 + (50 − compu) × 10 · Perdiste: vos × 10</div>
+  </div>
+
+  <div class="results-grid">
+    <div class="stat-card">
+      <div class="stat-label">Tu puntaje</div>
+      <div class="stat-value" id="res-player-score">—</div>
+      <div class="stat-unit">/ 50</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Puntaje compu</div>
+      <div class="stat-value" id="res-compu-score">—</div>
+      <div class="stat-unit">/ 50</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Jugadas totales</div>
+      <div class="stat-value" id="res-total-moves">—</div>
+      <div class="stat-unit">movimientos</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;">
+    <div class="lb-header">
+      <div class="lb-title">🏆 Tabla de posiciones</div>
+      <span class="lb-status" id="lb-status"></span>
+    </div>
+    <div id="lb-rows"></div>
+  </div>
+
+  <div class="actions-row">
+    <button class="btn btn-share" onclick="shareResults()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      Compartir mi resultado
+    </button>
+    <button class="btn btn-primary" onclick="restartGame()">Nuevo intento →</button>
+    <button class="btn btn-secondary" onclick="show('screen-info')" style="text-align:center;">¿Cómo funciona el algoritmo?</button>
+  </div>
+</div>
+
+
+<!-- ══ SCREEN 4 · CÓMO FUNCIONA ══════════════════════════ -->
+<div id="screen-info" class="screen">
+  <div class="lab-badge">El algoritmo</div>
+  <h1 style="font-size:clamp(1.8rem,6vw,2.6rem); margin-bottom:24px;">¿Cómo sabe<br>lo que vas a <span>hacer</span>?</h1>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">La idea central</div>
+    <p style="color:var(--text-dim); font-size:.95rem; line-height:1.75;">Por más que lo intentes, es muy difícil ser verdaderamente aleatorio. El juego tiene un algoritmo que analiza los patrones en la secuencia de jugadas que ingresaste. Para adivinar qué tecla vas a apretar, se fija cuáles fueron tus <strong style="color:var(--text)">últimas 4 jugadas</strong> y busca en todo tu historial qué tecla ingresaste a continuación cada vez que apareció esa misma secuencia. La que más veces se repitió es la que predice.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">El sistema de votación</div>
+    <p style="color:var(--text-dim); font-size:.95rem; line-height:1.75;">En realidad el algoritmo hace esto para ventanas de tamaño 1, 2, 3... hasta 8. Cada longitud "vota" por la siguiente jugada según el historial de patrones. Las longitudes intermedias (alrededor de 3) tienen más peso en la votación. La tecla con más votos ponderados es la que predice el algoritmo.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">¿Cómo ganarle?</div>
+    <p style="color:var(--text-dim); font-size:.95rem; line-height:1.75;">Si querés mejorar tus chances, probá tirando una moneda real o usando un dado, en lugar de decidir "desde la cabeza". También podés intentar evitar conscientemente los patrones que sabes que estás repitiendo. El algoritmo es más eficaz cuanto más tiempo lleva aprendiendo tus hábitos.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:28px;">
+    <div class="card-title">Referencias y versiones similares</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <a href="https://www.expunctis.com/2019/03/07/Not-so-random.html" target="_blank" style="color:var(--accent2); font-size:.9rem;">Not so random — expunctis.com</a>
+      <a href="https://roadtolarissa.com/oracle/" target="_blank" style="color:var(--accent2); font-size:.9rem;">Oracle — roadtolarissa.com</a>
+      <a href="http://success-equation.com/mind_reader.html" target="_blank" style="color:var(--accent2); font-size:.9rem;">Mind Reader — success-equation.com</a>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button class="btn btn-primary" onclick="restartGame()" style="flex:1; min-width:160px;">Nuevo intento →</button>
+    <button class="btn btn-secondary btn-sm" onclick="show('screen-results')" style="flex:1; min-width:120px;">← Volver</button>
+  </div>
+  <p class="credit">Creado por Guillermo Solovey para<br>Neurociencia y Psicología Experimental, UTDT.</p>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+
+<!-- ══ JAVASCRIPT ══════════════════════════════════════════ -->
+<script>
+/* ════════════════════════════════════════════════
+   ⚙️  CONFIGURACIÓN SUPABASE
+   ────────────────────────────────────────────────
+   1. Creá una tabla en tu proyecto Supabase:
+
+      CREATE TABLE azar_sessions (
+        id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        participant_id text NOT NULL DEFAULT 'Anónimo',
+        player_score  integer NOT NULL DEFAULT 0,
+        computer_score integer NOT NULL DEFAULT 0,
+        total_moves   integer NOT NULL DEFAULT 0,
+        player_won    boolean NOT NULL DEFAULT false,
+        game_score    integer NOT NULL DEFAULT 0,
+        created_at    timestamptz DEFAULT now()
+      );
+
+   2. Completá las credenciales y cambiá SUPABASE_ENABLED a true.
+   ════════════════════════════════════════════════ */
+
+const SUPABASE_URL      = 'https://irryksaoygdklwtsjsru.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_9zF3s9-hDyRRVi5OqAFP-w_z9Mrx9bt';
+const SUPABASE_ENABLED  = true;
+
+/* ── CONFIG ── */
+const MAX_N      = 8;
+const MAX_SCORE  = 50;
+const BETS_SHOW  = 9;  // cuántas jugadas mostrar en el historial
+
+/* ── ALGORITHM ── */
+function predict(s) {
+  const ns = s.length;
+  if (ns < 2) return Math.random() < 0.5 ? 0 : 1;
+
+  const effectiveN = Math.min(MAX_N, ns - 1);
+  let votes0 = 0, votes1 = 0;
+
+  for (let n = 1; n <= effectiveN; n++) {
+    const [v0, v1] = countRep(s, n);
+    votes0 += v0;
+    votes1 += v1;
+  }
+
+  if (votes0 === votes1) return Math.random() < 0.5 ? 0 : 1;
+  return votes0 > votes1 ? 0 : 1;
+}
+
+function countRep(s, n) {
+  const ns    = s.length;
+  const last  = s.slice(-n);
+  const last0 = [...last, 0];
+  const last1 = [...last, 1];
+
+  let v0 = 0, v1 = 0;
+  for (let i = 0; i <= ns - n - 1; i++) {
+    const seg = s.slice(i, i + n + 1);
+    if (arrEq(seg, last0)) v0++;
+    if (arrEq(seg, last1)) v1++;
+  }
+
+  // Peso según longitud de ventana (máximo en n≈3, cae cuadráticamente)
+  const w = -0.4 * Math.pow(n - 3, 2) + 100;
+  return [v0 * w, v1 * w];
+}
+
+function arrEq(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/* ── GAME STATE ── */
+let moves         = [];   // jugadas del jugador: 0=derecha, 1=izquierda
+let preds         = [];   // predicciones de la compu
+let playerScore   = 0;
+let computerScore = 0;
+let gameOver      = false;
+let nextPred      = null;
+let participantId = '';
+
+/* ── GAUGE ── */
+function drawGauge(canvasId, value, label) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const dpr  = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  canvas.width  = rect.width  * dpr;
+  canvas.height = rect.height * dpr;
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const W  = rect.width;
+  const H  = rect.height;
+  const cx = W / 2;
+  const cy = H * 0.83;
+  const R  = Math.min(W * 0.42, H * 0.79);
+  const lw = Math.max(4, R * 0.135);
+
+  // angle(v): 0→π(left), 50→2π(right), going through TOP (3π/2)
+  const va = v => Math.PI * (1 + v / MAX_SCORE);
+
+  // Background track
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, Math.PI, 2 * Math.PI, false);
+  ctx.strokeStyle = '#1e2030';
+  ctx.lineWidth   = lw;
+  ctx.lineCap     = 'butt';
+  ctx.stroke();
+
+  // Green zone (0–30)
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, Math.PI, va(30), false);
+  ctx.strokeStyle = '#4caf7d';
+  ctx.lineWidth   = lw;
+  ctx.stroke();
+
+  // Yellow zone (30–40)
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, va(30), va(40), false);
+  ctx.strokeStyle = '#ff9900';
+  ctx.lineWidth   = lw;
+  ctx.stroke();
+
+  // Red zone (40–50)
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, va(40), va(50), false);
+  ctx.strokeStyle = '#e85b5b';
+  ctx.lineWidth   = lw;
+  ctx.stroke();
+
+  // Needle
+  const a  = va(value);
+  const nr = R * 0.68;
+  const nx = cx + nr * Math.cos(a);
+  const ny = cy + nr * Math.sin(a);
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(nx, ny);
+  ctx.strokeStyle = '#f38171';
+  ctx.lineWidth   = Math.max(2.5, R * 0.045);
+  ctx.lineCap     = 'round';
+  ctx.stroke();
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.085, 0, 2 * Math.PI);
+  ctx.fillStyle = '#5b8dee';
+  ctx.fill();
+
+  // Score number
+  ctx.fillStyle    = '#ffffff';
+  ctx.font         = `bold ${Math.round(R * 0.33)}px 'Playfair Display', Georgia, serif`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(value, cx, cy - R * 0.23);
+
+  // Label
+  ctx.fillStyle    = '#7e8198';
+  ctx.font         = `${Math.round(R * 0.175)}px 'DM Mono', monospace`;
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(label.toUpperCase(), cx, cy + R * 0.07);
+
+  // 0 / 50 tick labels
+  ctx.fillStyle    = '#45485a';
+  ctx.font         = `${Math.round(R * 0.15)}px 'DM Mono', monospace`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign    = 'left';
+  ctx.fillText('0',  cx - R * 0.96, cy + R * 0.1);
+  ctx.textAlign    = 'right';
+  ctx.fillText('50', cx + R * 0.96, cy + R * 0.1);
+}
+
+/* ── BETS VISUALIZATION ── */
+function renderBets() {
+  const pDiv = document.getElementById('bets-player');
+  const cDiv = document.getElementById('bets-compu');
+  if (!pDiv || !cDiv) return;
+
+  const total = moves.length;
+  const start = Math.max(0, total - BETS_SHOW);
+  const shown = moves.slice(start);
+  const shownP = preds.slice(start);
+
+  pDiv.innerHTML = '';
+  cDiv.innerHTML = '';
+
+  // Empty slots to pad left
+  const pad = BETS_SHOW - shown.length;
+  for (let i = 0; i < pad; i++) {
+    pDiv.innerHTML += '<div class="bet-cell bet-empty"></div>';
+    cDiv.innerHTML += '<div class="bet-cell bet-empty"></div>';
+  }
+
+  // Played moves
+  for (let i = 0; i < shown.length; i++) {
+    const m    = shown[i];
+    const pred = shownP[i];
+    const hit  = m === pred; // computer scored this round
+    const cls  = hit ? 'bet-cell computer-pt' : 'bet-cell player-pt';
+    pDiv.innerHTML += `<div class="${cls}">${m === 0 ? '→' : '←'}</div>`;
+    cDiv.innerHTML += `<div class="${cls}">${pred === 0 ? '→' : '←'}</div>`;
+  }
+
+  // Upcoming slot
+  pDiv.innerHTML += '<div class="bet-cell bet-upcoming">?</div>';
+  cDiv.innerHTML += '<div class="bet-cell bet-upcoming">?</div>';
+}
+
+/* ── GAME LOGIC ── */
+function startGame() {
+  participantId = document.getElementById('participant-id').value.trim();
+  moves         = [];
+  preds         = [];
+  playerScore   = 0;
+  computerScore = 0;
+  gameOver      = false;
+  nextPred      = predict(moves);  // primer predicción (random)
+
+  document.getElementById('score-player').textContent = 0;
+  document.getElementById('score-compu').textContent  = 0;
+
+  show('screen-game');
+
+  // Small delay to let canvas render at correct size
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      drawGauge('gauge-player', 0, 'vos');
+      drawGauge('gauge-compu',  0, 'compu');
+      renderBets();
+    });
+  });
+}
+
+function handleMove(move) {   // move: 0=derecha, 1=izquierda
+  if (gameOver) return;
+
+  const pred = nextPred !== null ? nextPred : predict(moves);
+
+  moves.push(move);
+  preds.push(pred);
+
+  const playerScored = move !== pred;
+  if (playerScored) playerScore++;
+  else              computerScore++;
+
+  // Update score bar
+  const pEl = document.getElementById('score-player');
+  const cEl = document.getElementById('score-compu');
+  pEl.textContent = playerScore;
+  cEl.textContent = computerScore;
+
+  // Flash feedback
+  flashFeedback(playerScored ? 'player' : 'compu');
+  flashGauge(playerScored ? 'player' : 'compu');
+
+  // Update gauges & bets
+  drawGauge('gauge-player', playerScore,   'vos');
+  drawGauge('gauge-compu',  computerScore, 'compu');
+  renderBets();
+
+  // Next prediction (on the already-updated moves array)
+  nextPred = predict(moves);
+
+  // Check win condition
+  if (playerScore >= MAX_SCORE || computerScore >= MAX_SCORE) {
+    gameOver = true;
+    setTimeout(endGame, 500);
+  }
+}
+
+function flashFeedback(who) {
+  const el = document.getElementById('feedback-flash');
+  el.className = 'feedback-flash ' + who + ' show';
+  setTimeout(() => el.classList.remove('show'), 200);
+}
+
+function flashGauge(who) {
+  const id  = who === 'player' ? 'flash-player' : 'flash-compu';
+  const cls = who === 'player' ? 'player' : 'compu';
+  const el  = document.getElementById(id);
+  if (!el) return;
+  el.className = 'gauge-flash ' + cls + ' show';
+  setTimeout(() => el.classList.remove('show'), 250);
+}
+
+function confirmReset() {
+  if (moves.length === 0 || gameOver) { restartGame(); return; }
+  if (confirm('¿Querés reiniciar la partida?')) restartGame();
+}
+
+/* ── END GAME ── */
+async function endGame() {
+  const playerWon = playerScore >= MAX_SCORE;
+  const gameScore = playerWon
+    ? 1000 + (MAX_SCORE - computerScore) * 10
+    : playerScore * 10;
+
+  // Fill results
+  const winEl = document.getElementById('res-winner');
+  winEl.textContent = playerWon ? '¡Ganaste! 🎉' : '¡Perdiste!';
+  winEl.className   = 'res-winner-text ' + (playerWon ? 'won' : 'lost');
+
+  document.getElementById('res-player-score').textContent = playerScore;
+  document.getElementById('res-compu-score').textContent  = computerScore;
+  document.getElementById('res-total-moves').textContent  = moves.length;
+  document.getElementById('res-game-score').textContent   = gameScore.toLocaleString();
+  document.getElementById('res-participant').textContent  = 'Participante: ' + (participantId || 'Anónimo');
+
+  show('screen-results');
+
+  const lbStatus = document.getElementById('lb-status');
+
+  if (SUPABASE_ENABLED) {
+    lbStatus.textContent = '⟳';
+    lbStatus.className   = 'lb-status spin';
+    try {
+      await sbSave({
+        participant_id: participantId || 'Anónimo',
+        player_score:   playerScore,
+        computer_score: computerScore,
+        total_moves:    moves.length,
+        player_won:     playerWon,
+        game_score:     gameScore
+      });
+      const rows = await sbLoadLeaderboard();
+      renderLeaderboard(rows, participantId || 'Anónimo', gameScore);
+    } catch (e) {
+      lbStatus.textContent = 'Error de conexión';
+      lbStatus.className   = 'lb-status err';
+      document.getElementById('lb-rows').innerHTML =
+        '<div class="lb-empty">No se pudo conectar al servidor.</div>';
+    }
+  } else {
+    lbStatus.textContent = 'sin conexión';
+    lbStatus.className   = 'lb-status err';
+    document.getElementById('lb-rows').innerHTML =
+      '<div class="lb-empty">Configurá Supabase en el código<br>para ver el ranking global.</div>';
+  }
+}
+
+/* ── SUPABASE ── */
+const SB_HDR = {
+  'Content-Type':  'application/json',
+  'apikey':        SUPABASE_ANON_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+};
+const SB_URL = SUPABASE_URL + '/rest/v1/azar_sessions';
+
+async function sbSave(data) {
+  const res = await fetch(SB_URL, {
+    method:  'POST',
+    headers: { ...SB_HDR, 'Prefer': 'return=minimal' },
+    body:    JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+
+async function sbLoadLeaderboard() {
+  const res = await fetch(
+    SB_URL + '?select=participant_id,game_score,player_score,computer_score,player_won' +
+    '&order=game_score.desc&limit=10',
+    { headers: SB_HDR }
+  );
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+/* ── LEADERBOARD RENDER ── */
+function renderLeaderboard(rows, currentPid, currentScore) {
+  const container = document.getElementById('lb-rows');
+  const status    = document.getElementById('lb-status');
+
+  if (!rows || !rows.length) {
+    container.innerHTML = '<div class="lb-empty">Todavía no hay registros.<br>¡Sé el primero!</div>';
+    status.textContent  = '';
+    status.className    = 'lb-status';
+    return;
+  }
+
+  status.textContent = rows.length + ' participantes';
+  status.className   = 'lb-status ok';
+  container.innerHTML = '';
+
+  rows.forEach((row, i) => {
+    const rank     = i + 1;
+    const isMe     = currentPid && row.participant_id === currentPid && row.game_score === currentScore;
+    const rankMap  = { 1:['r1','🥇'], 2:['r2','🥈'], 3:['r3','🥉'] };
+    const [rCls, rSym] = rankMap[rank] ?? ['rn', rank];
+
+    const div      = document.createElement('div');
+    div.className  = 'lb-row' + (isMe ? ' is-you' : '') + ' rank-' + Math.min(rank, 4);
+    div.innerHTML  = `
+      <div class="lb-rank ${rCls}">${rSym}</div>
+      <div class="lb-info">
+        <div class="lb-name">${esc(row.participant_id)}${isMe ? '<span class="you-badge">TÚ</span>' : ''}</div>
+        <div class="lb-meta">${row.player_won ? '✓ ganó' : '✗ perdió'} · ${row.player_score} vs ${row.computer_score}</div>
+      </div>
+      <div class="lb-score ${rank === 1 ? 'r1' : ''}">${(row.game_score || 0).toLocaleString()}</div>
+    `;
+    container.appendChild(div);
+
+    if (isMe) {
+      const rankEl = document.getElementById('res-score-rank');
+      if (rankEl) rankEl.textContent = 'Posición #' + rank + ' en el ranking';
+    }
+  });
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── SCREENS ── */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const lock = id === 'screen-game';
+  document.body.classList.toggle('game-active', lock);
+  document.documentElement.classList.toggle('game-active', lock);
+  if (!lock) window.scrollTo(0, 0);
+}
+
+/* ── KEYBOARD ── */
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('screen-game').classList.contains('active')) return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); pressBtn('btn-left');  handleMove(1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); pressBtn('btn-right'); handleMove(0); }
+});
+
+function pressBtn(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('pressed');
+  setTimeout(() => el.classList.remove('pressed'), 150);
+}
+
+/* ── TOUCH BUTTONS ── */
+['btn-left', 'btn-right'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    handleMove(id === 'btn-left' ? 1 : 0);
+  }, { passive: false });
+  el.addEventListener('click', e => {
+    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+    handleMove(id === 'btn-left' ? 1 : 0);
+  });
+});
+
+/* ── SHARE ── */
+async function shareResults() {
+  const playerWon = playerScore >= MAX_SCORE;
+  const url       = window.location.href.split('?')[0];
+  const text      = playerWon
+    ? `🎯 ¡Gané el Juego del Azar en ${moves.length} jugadas! ¿Podés ganarle al algoritmo?\n👉 ${url}`
+    : `🤖 El algoritmo me leyó la mente ${computerScore} veces. Intentalo vos.\n👉 ${url}`;
+
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Juego del Azar · NyPE', text }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('✓ ¡Copiado al portapapeles!');
+  } catch {
+    showToast('Copiá el link manualmente');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function restartGame() {
+  show('screen-start');
+}
+
+/* ── RESIZE: redraw gauges ── */
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (document.getElementById('screen-game').classList.contains('active')) {
+      drawGauge('gauge-player', playerScore,   'vos');
+      drawGauge('gauge-compu',  computerScore, 'compu');
+    }
+  }, 120);
+});
+</script>
+</body>
+</html>

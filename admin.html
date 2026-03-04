@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Juego del Azar · NyPE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --bg:#0d0e12; --surface:#161820; --border:#252730; --accent:#e8c547;
+  --accent2:#5b8dee; --muted:#555870; --text:#d8dae8; --text-dim:#7e8198;
+  --red:#e85b5b; --green:#4caf7d; --gold:#e8c547; --silver:#a0a8c0; --bronze:#cd7f32;
+  --radius:12px;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text);
+  min-height:100vh; padding:32px 18px 56px;
+}
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(91,141,238,.08) 0%,transparent 70%);
+}
+
+.wrap { max-width:900px; margin:0 auto; position:relative; z-index:1; }
+
+.lab-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:'DM Mono',monospace; font-size:11px; letter-spacing:.12em;
+  color:var(--accent); text-transform:uppercase;
+  border:1px solid rgba(232,197,71,.25); padding:6px 14px; border-radius:100px; margin-bottom:20px;
+}
+.lab-badge::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--accent); animation:blink 2s ease infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+h1 { font-family:'Playfair Display',serif; font-size:clamp(1.8rem,5vw,2.8rem); font-weight:900; color:#fff; margin-bottom:6px; letter-spacing:-.02em; }
+h1 span { color:var(--accent); }
+.page-sub { color:var(--text-dim); font-size:.88rem; margin-bottom:28px; }
+
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:22px; margin-bottom:14px; }
+.card-title { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+
+/* Stats pills */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+@media (max-width:560px) { .stats-row { grid-template-columns:1fr 1fr; } }
+@media (max-width:360px) { .stats-row { grid-template-columns:1fr; } }
+
+.stat-pill {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px 16px;
+}
+.stat-pill-label {
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:8px;
+}
+.stat-pill-value {
+  font-family:'Playfair Display',serif; font-size:1.9rem; font-weight:700; color:#fff;
+}
+.stat-pill-sub {
+  font-size:.72rem; color:var(--text-dim); margin-top:4px;
+}
+.stat-pill.highlight { border-color:rgba(232,197,71,.3); }
+.stat-pill.highlight .stat-pill-value { color:var(--accent); }
+
+/* Charts */
+.charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+@media (max-width:560px) { .charts-grid { grid-template-columns:1fr; } }
+.chart-wrap  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+.chart-title { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+.chart-h { position:relative; height:200px; }
+
+/* Controls */
+.controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:20px; }
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:11px 22px; border-radius:9px; font-size:.88rem; font-weight:500;
+  cursor:pointer; border:none; transition:all .2s; min-height:44px;
+  font-family:'DM Sans',sans-serif;
+}
+.btn-primary   { background:var(--accent); color:#0d0e12; }
+.btn-primary:hover { background:#f0d060; }
+.btn-secondary { background:transparent; color:var(--text); border:1px solid var(--border); }
+.btn-secondary:hover { border-color:var(--text-dim); }
+.btn-danger    { color:var(--red); border:1px solid rgba(232,91,91,.3); background:transparent; }
+.btn-danger:hover { background:rgba(232,91,91,.06); }
+
+.status-line { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); padding:4px 0; }
+.status-line.ok  { color:var(--green); }
+.status-line.err { color:var(--red); }
+@keyframes spin { to{transform:rotate(360deg)} }
+.spin-icon { display:inline-block; animation:spin .8s linear infinite; }
+
+/* Leaderboard */
+.lb-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+.lb-title  { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.lb-status { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+.lb-status.ok { color:var(--green); }
+
+.lb-row { display:grid; grid-template-columns:36px 1fr auto; align-items:center; gap:10px; padding:12px 14px; border-radius:9px; margin-bottom:6px; background:var(--surface); border:1px solid var(--border); }
+.lb-row.rank-1 { border-color:rgba(232,197,71,.4); }
+.lb-row.rank-2 { border-color:rgba(160,168,192,.25); }
+.lb-row.rank-3 { border-color:rgba(205,127,50,.25); }
+.lb-rank { font-family:'Playfair Display',serif; font-size:1.2rem; font-weight:700; text-align:center; }
+.lb-rank.r1 { color:var(--gold); }
+.lb-rank.r2 { color:var(--silver); }
+.lb-rank.r3 { color:var(--bronze); }
+.lb-rank.rn { color:var(--muted); font-size:.9rem; font-family:'DM Mono',monospace; }
+.lb-info { min-width:0; }
+.lb-name { font-size:.9rem; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lb-meta { font-size:.7rem; color:var(--text-dim); font-family:'DM Mono',monospace; margin-top:2px; }
+.lb-score { font-family:'Playfair Display',serif; font-size:1.3rem; font-weight:700; color:var(--text); white-space:nowrap; }
+.lb-score.r1 { color:var(--gold); }
+.lb-empty { text-align:center; padding:24px; color:var(--muted); font-size:.85rem; font-family:'DM Mono',monospace; }
+
+/* Password modal */
+.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:100; align-items:center; justify-content:center; padding:24px; }
+.modal-bg.active { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px; width:100%; max-width:360px; animation:fadeUp .2s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.modal h2 { font-family:'Playfair Display',serif; font-size:1.4rem; color:#fff; margin-bottom:8px; }
+.modal p  { font-size:.85rem; color:var(--text-dim); margin-bottom:18px; line-height:1.5; }
+.modal input {
+  width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border);
+  border-radius:8px; padding:12px 14px; color:var(--text);
+  font-family:'DM Mono',monospace; font-size:15px; outline:none;
+  transition:border-color .2s; margin-bottom:10px;
+}
+.modal input:focus { border-color:var(--accent2); }
+.modal-err  { font-family:'DM Mono',monospace; font-size:11px; color:var(--red); min-height:18px; margin-bottom:12px; }
+.modal-btns { display:flex; gap:10px; }
+.modal-btns .btn { flex:1; }
+
+/* Data table */
+.data-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.data-table th {
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); padding:10px 12px; text-align:left;
+  border-bottom:1px solid var(--border);
+}
+.data-table td { padding:10px 12px; color:var(--text-dim); border-bottom:1px solid rgba(37,39,48,.5); }
+.data-table tr:last-child td { border-bottom:none; }
+.data-table tr:hover td { background:rgba(255,255,255,.02); }
+.td-name { color:var(--text) !important; font-weight:500; }
+.td-won  { color:var(--green) !important; }
+.td-lost { color:var(--red) !important; }
+.td-score { font-family:'DM Mono',monospace; }
+.table-wrap { overflow-x:auto; }
+
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="lab-badge">NyPE · Admin</div>
+  <h1>Panel de <span>resultados</span></h1>
+  <p class="page-sub">Juego del Azar · Resumen agregado de todas las sesiones · Acceso solo para el experimentador</p>
+
+  <div class="controls">
+    <button class="btn btn-primary"   onclick="loadData()">↻ Actualizar</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">Exportar CSV</button>
+    <button class="btn btn-danger"    onclick="openModal()">Borrar todos los datos</button>
+    <span class="status-line" id="status">—</span>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="stats-row">
+    <div class="stat-pill highlight">
+      <div class="stat-pill-label">Sesiones</div>
+      <div class="stat-pill-value" id="s-n">—</div>
+      <div class="stat-pill-sub">registradas</div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-pill-label">Tasa de victoria</div>
+      <div class="stat-pill-value" id="s-winrate">—</div>
+      <div class="stat-pill-sub">% ganaron</div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-pill-label">Puntaje medio</div>
+      <div class="stat-pill-value" id="s-avgscore">—</div>
+      <div class="stat-pill-sub">jugador (vs 50)</div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-pill-label">Jugadas promedio</div>
+      <div class="stat-pill-value" id="s-avgmoves">—</div>
+      <div class="stat-pill-sub">por partida</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-wrap">
+      <div class="chart-title">Distribución de puntajes del jugador</div>
+      <div class="chart-h"><canvas id="chart-scores"></canvas></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Ganaron vs. Perdieron</div>
+      <div class="chart-h"><canvas id="chart-winrate"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Leaderboard top 10 -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="lb-header">
+      <div class="lb-title">🏆 Tabla de posiciones</div>
+      <span class="lb-status" id="lb-status"></span>
+    </div>
+    <div id="lb-rows"></div>
+  </div>
+
+  <!-- Full data table -->
+  <div class="card">
+    <div class="card-title">Todas las sesiones</div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Participante</th>
+            <th>Resultado</th>
+            <th>Jugador</th>
+            <th>Compu</th>
+            <th>Jugadas</th>
+            <th>Puntaje</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody id="data-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Delete modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2>Confirmar borrado</h2>
+    <p>Esta acción elimina permanentemente <strong style="color:var(--text)" id="modal-n"></strong>. Ingresá la contraseña de administrador para continuar.</p>
+    <input type="password" id="modal-pwd" placeholder="Contraseña"
+           onkeydown="if(event.key==='Enter') doDelete()">
+    <div class="modal-err" id="modal-err"></div>
+    <div class="modal-btns">
+      <button class="btn btn-danger"    onclick="doDelete()">Borrar</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   ⚙️  CONFIGURACIÓN — igualar a index.html
+   ════════════════════════════════════════ */
+const SUPABASE_URL      = 'https://irryksaoygdklwtsjsru.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_9zF3s9-hDyRRVi5OqAFP-w_z9Mrx9bt';
+
+// ← Cambiá esto por la contraseña que quieras usar
+const ADMIN_PASSWORD = 'nype2025';
+
+/* ════════════════════════════════════════ */
+
+const SB_HEADERS = {
+  'Content-Type':  'application/json',
+  'apikey':        SUPABASE_ANON_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+};
+const SB_REST = SUPABASE_URL + '/rest/v1/azar_sessions';
+
+let allData = [], scoreChart = null, winChart = null;
+
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color:'#7e8198', font:{ family:"'DM Mono',monospace", size:11 }, boxWidth:12, padding:12 } },
+    tooltip: { backgroundColor:'#161820', borderColor:'#252730', borderWidth:1, titleColor:'#d8dae8', bodyColor:'#7e8198', titleFont:{ family:"'DM Mono',monospace", size:11 }, bodyFont:{ family:"'DM Mono',monospace", size:11 } }
+  },
+  scales: {
+    x: { ticks:{ color:'#7e8198', font:{ family:"'DM Mono',monospace", size:11 } }, grid:{ color:'#1e2030' } },
+    y: { ticks:{ color:'#7e8198', font:{ family:"'DM Mono',monospace", size:11 } }, grid:{ color:'#1e2030' } }
+  }
+};
+
+/* ── LOAD ── */
+async function loadData() {
+  const status = document.getElementById('status');
+  status.innerHTML = '<span class="spin-icon">⟳</span>';
+  status.className = 'status-line';
+  try {
+    const res = await fetch(SB_REST + '?select=*&order=created_at.desc', { headers: SB_HEADERS });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + await res.text());
+    allData = await res.json();
+    status.textContent = allData.length + ' sesiones cargadas';
+    status.className   = 'status-line ok';
+    renderAll();
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+    status.className   = 'status-line err';
+  }
+}
+
+/* ── RENDER ALL ── */
+function mean(arr) {
+  const v = arr.filter(x => x !== null && x !== undefined && !isNaN(x));
+  return v.length ? v.reduce((a,b) => a + b, 0) / v.length : null;
+}
+
+function renderAll() {
+  const n       = allData.length;
+  const winners = allData.filter(d => d.player_won);
+  const winRate = n ? Math.round(winners.length / n * 100) : 0;
+  const avgScore= n ? Math.round(mean(allData.map(d => d.player_score))) : null;
+  const avgMoves= n ? Math.round(mean(allData.map(d => d.total_moves)))  : null;
+
+  document.getElementById('s-n').textContent       = n;
+  document.getElementById('s-winrate').textContent  = n ? winRate + '%' : '—';
+  document.getElementById('s-avgscore').textContent = avgScore ?? '—';
+  document.getElementById('s-avgmoves').textContent = avgMoves ?? '—';
+
+  renderCharts(winRate, n - winners.length);
+  renderLeaderboard();
+  renderTable();
+}
+
+/* ── CHARTS ── */
+function renderCharts(wins, losses) {
+  const n = allData.length;
+
+  if (scoreChart) { scoreChart.destroy(); scoreChart = null; }
+  if (winChart)   { winChart.destroy();   winChart   = null; }
+
+  // Score distribution histogram (bins of 5)
+  const bins = Array(10).fill(0);
+  allData.forEach(d => {
+    const idx = Math.min(Math.floor(d.player_score / 5), 9);
+    bins[idx]++;
+  });
+  const binLabels = bins.map((_, i) => `${i*5}–${i*5+4}`);
+
+  scoreChart = new Chart(document.getElementById('chart-scores'), {
+    type: 'bar',
+    data: {
+      labels: binLabels,
+      datasets: [{
+        label: 'Sesiones',
+        data: bins,
+        backgroundColor: bins.map((_, i) =>
+          i < 6 ? 'rgba(76,175,125,.7)' : i < 8 ? 'rgba(255,153,0,.7)' : 'rgba(232,91,91,.7)'
+        ),
+        borderWidth: 0, borderRadius: 4
+      }]
+    },
+    options: {
+      ...baseOpts,
+      plugins: { ...baseOpts.plugins, legend: { display: false } },
+      scales: {
+        ...baseOpts.scales,
+        y: { ...baseOpts.scales.y, beginAtZero: true, ticks: { ...baseOpts.scales.y.ticks, stepSize: 1 } }
+      }
+    }
+  });
+
+  // Win/lose donut
+  winChart = new Chart(document.getElementById('chart-winrate'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Ganaron', 'Perdieron'],
+      datasets: [{
+        data: [wins, losses],
+        backgroundColor: ['rgba(76,175,125,.8)', 'rgba(232,91,91,.6)'],
+        borderColor:     ['rgba(76,175,125,1)',  'rgba(232,91,91,1)'],
+        borderWidth: 1.5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position:'bottom', labels:{ color:'#7e8198', font:{ family:"'DM Mono',monospace", size:11 }, boxWidth:12, padding:12 } },
+        tooltip: baseOpts.plugins.tooltip
+      }
+    }
+  });
+}
+
+/* ── LEADERBOARD ── */
+function renderLeaderboard() {
+  const sorted = [...allData].sort((a,b) => (b.game_score||0) - (a.game_score||0)).slice(0, 10);
+  const container = document.getElementById('lb-rows');
+  const lbStatus  = document.getElementById('lb-status');
+
+  if (!sorted.length) {
+    container.innerHTML = '<div class="lb-empty">Todavía no hay sesiones registradas.</div>';
+    lbStatus.textContent = ''; return;
+  }
+
+  lbStatus.textContent = 'top ' + sorted.length + ' de ' + allData.length;
+  lbStatus.className   = 'lb-status ok';
+  container.innerHTML  = '';
+
+  sorted.forEach((row, i) => {
+    const rank = i + 1;
+    const rankMap = { 1:['r1','🥇'], 2:['r2','🥈'], 3:['r3','🥉'] };
+    const [rCls, rSym] = rankMap[rank] ?? ['rn', rank];
+    const div = document.createElement('div');
+    div.className = 'lb-row rank-' + Math.min(rank, 4);
+    div.innerHTML = `
+      <div class="lb-rank ${rCls}">${rSym}</div>
+      <div class="lb-info">
+        <div class="lb-name">${esc(row.participant_id)}</div>
+        <div class="lb-meta">${row.player_won ? '✓ ganó' : '✗ perdió'} · ${row.player_score} vs ${row.computer_score} · ${row.total_moves} jugadas</div>
+      </div>
+      <div class="lb-score ${rank===1?'r1':''}">${(row.game_score||0).toLocaleString()}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+/* ── DATA TABLE ── */
+function renderTable() {
+  const tbody = document.getElementById('data-tbody');
+  tbody.innerHTML = '';
+
+  allData.forEach(row => {
+    const tr  = document.createElement('tr');
+    const dt  = row.created_at ? new Date(row.created_at).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+    tr.innerHTML = `
+      <td class="td-name">${esc(row.participant_id || '—')}</td>
+      <td class="${row.player_won ? 'td-won' : 'td-lost'}">${row.player_won ? '✓ Ganó' : '✗ Perdió'}</td>
+      <td class="td-score">${row.player_score ?? '—'}</td>
+      <td class="td-score">${row.computer_score ?? '—'}</td>
+      <td class="td-score">${row.total_moves ?? '—'}</td>
+      <td class="td-score">${(row.game_score || 0).toLocaleString()}</td>
+      <td>${dt}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (!allData.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--muted); font-family:\'DM Mono\',monospace; font-size:.82rem;">Sin datos</td></tr>';
+  }
+}
+
+/* ── CSV ── */
+function exportCSV() {
+  if (!allData.length) { alert('No hay datos cargados.'); return; }
+  const headers = ['participant_id','player_won','player_score','computer_score','total_moves','game_score','created_at'];
+  const rows    = allData.map(d => headers.map(k => JSON.stringify(d[k] ?? '')).join(','));
+  const blob    = new Blob([[headers.join(','), ...rows].join('\n')], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'azar_admin_' + Date.now() + '.csv';
+  a.click();
+}
+
+/* ── MODAL ── */
+function openModal() {
+  if (!allData.length) { alert('No hay datos para borrar.'); return; }
+  document.getElementById('modal-n').textContent   = allData.length + ' sesiones';
+  document.getElementById('modal-pwd').value        = '';
+  document.getElementById('modal-err').textContent  = '';
+  document.getElementById('modal-bg').classList.add('active');
+  setTimeout(() => document.getElementById('modal-pwd').focus(), 120);
+}
+
+function closeModal() {
+  document.getElementById('modal-bg').classList.remove('active');
+}
+
+document.getElementById('modal-bg').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-bg')) closeModal();
+});
+
+async function doDelete() {
+  const pwd = document.getElementById('modal-pwd').value;
+  if (pwd !== ADMIN_PASSWORD) {
+    document.getElementById('modal-err').textContent = 'Contraseña incorrecta.';
+    document.getElementById('modal-pwd').value = '';
+    document.getElementById('modal-pwd').focus();
+    return;
+  }
+
+  closeModal();
+  const status = document.getElementById('status');
+  status.textContent = 'Borrando…';
+  status.className   = 'status-line';
+
+  try {
+    const res = await fetch(SB_REST + '?id=neq.00000000-0000-0000-0000-000000000000', {
+      method: 'DELETE', headers: SB_HEADERS
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    allData = [];
+    document.getElementById('s-n').textContent       = '0';
+    document.getElementById('s-winrate').textContent  = '—';
+    document.getElementById('s-avgscore').textContent = '—';
+    document.getElementById('s-avgmoves').textContent = '—';
+    document.getElementById('lb-rows').innerHTML  = '<div class="lb-empty">Sin datos.</div>';
+    document.getElementById('lb-status').textContent = '';
+    document.getElementById('data-tbody').innerHTML = '';
+    if (scoreChart) { scoreChart.destroy(); scoreChart = null; }
+    if (winChart)   { winChart.destroy();   winChart   = null; }
+    status.textContent = 'Datos borrados correctamente.';
+    status.className   = 'status-line ok';
+  } catch(e) {
+    status.textContent = 'Error al borrar: ' + e.message;
+    status.className   = 'status-line err';
+  }
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+loadData();
+</script>
+</body>
+</html>
