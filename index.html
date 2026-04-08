@@ -12,6 +12,7 @@
 :root {
   --bg:        #f4f5f9;
   --surface:   #ffffff;
+  --surface-2: #f0f1f7;
   --border:    #dde0ee;
   --accent:    #e8c547;
   --accent2:   #3b6fd4;
@@ -91,13 +92,13 @@ h1 span { color:var(--accent); }
 .step-text strong { color:var(--text); }
 
 .key-row { display:flex; gap:10px; flex-wrap:wrap; }
-.key-pill { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:clamp(.85rem,3vw,.95rem); }
-.key-num { font-family:'DM Mono',monospace; font-size:.85rem; font-weight:500; background:rgba(255,255,255,.08); border-radius:6px; padding:2px 8px; color:var(--accent); }
+.key-pill { display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:clamp(.85rem,3vw,.95rem); }
+.key-num { font-family:'DM Mono',monospace; font-size:.85rem; font-weight:500; background:var(--border); border-radius:6px; padding:2px 8px; color:var(--gold); }
 
 .field { margin-bottom:4px; }
 label { display:block; font-size:.82rem; color:var(--text-dim); margin-bottom:6px; }
 input[type="text"] {
-  width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border);
+  width:100%; background:var(--surface-2); border:1px solid var(--border);
   border-radius:8px; padding:13px 16px; color:var(--text);
   font-family:'DM Mono',monospace; font-size:16px;
   outline:none; transition:border-color var(--tr); -webkit-appearance:none;
